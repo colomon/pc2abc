@@ -15,6 +15,7 @@ from collections import namedtuple
 
 LOGFILE = sys.argv[1] + '.log'
 PCFILE = sys.argv[1] + '.PC'
+ABCFILE = sys.argv[1] + '.ABC'
 
 
 class Music_object():
@@ -42,6 +43,8 @@ class Note(Music_object):
 		self.timecode = timecode
 		self.beam_start = beam_start
 		self.beam_end = beam_end
+	def render(self, ABC):
+		ABC.write("N ")
 
 
 class Rest(Music_object):
@@ -51,6 +54,9 @@ class Rest(Music_object):
 	def __init__(self, length=0, timecode=0):
 		self.length = length
 		self.timecode =timecode
+	def render(self,ABC):
+		ABC.write("R")
+		
 
 class Misc_object(Music_object):
 	kind=1
@@ -79,14 +85,21 @@ class Muse_bar():
 		self.rest_list.append(some_rest)
 	def sort_events(self):
 		notes_and_rests= self.note_list + self.rest_list
-		self.event_list = sorted(notes_and_rests, key=lambda x: x.timecode, reverse=True)
+		self.event_list = sorted(notes_and_rests, key=lambda x: x.timecode, reverse=False)
+	def render(self, ABCFILE):
+		self.sort_events()
+		for event in self.event_list:
+			event.render(ABCFILE)
+		ABCFILE.write(" | ")
 
 class Muse_part():
 	part_number = 0
 	bar_list = []
+	clef=''
 	def __init__(self, number):
 		self.part_number=number
-		self.bar_list = 0
+		self.bar_list = []
+		self.clef=''
 	def add_bar(self, some_bar):
 		self.bar_list.append(some_bar)
 
@@ -137,22 +150,9 @@ class font_data():
 	def __init__(self,stuff):
 		self.contents = stuff
 
-barhead=namedtuple('barhead',['clef', 'key', 'beats', 'unit'])
 
 
 
-def read_barhead(FILE,LOG):
-	pos = FILE.tell()
-	headbytes = FILE.read(8)
-	log (LOG, pos, headbytes)
-	headstuff= unpack('B4sBBB', headbytes)
-	#log(LOG, FILE.tell(),headstuff)
-	key_clef=headstuff[0]
-	print ('Clefkey: ', key_clef, 'Beats: ', headstuff[2], 'Unit: ', headstuff[3])
-	clef=key_clef%64
-	key=key_clef//64
-	bardata=barhead(clef,key,headstuff[2],headstuff[3])
-	return bardata
 
 def read_barstuff(FILE, LOG):
 	pos = FILE.tell()
@@ -161,10 +161,20 @@ def read_barstuff(FILE, LOG):
 	headstuff= unpack('B4sBBB', headbytes)
 	key_clef=headstuff[0]
 	print ('Clefkey: ', key_clef, 'Beats: ', headstuff[2], 'Unit: ', headstuff[3])
-	clef=key_clef%64
-	key=key_clef//64
+	clef=key_clef%16
+	key=key_clef//16
 	new_muse_bar = Muse_bar(key, clef, beats=headstuff[2], unit=headstuff[3])
 	return new_muse_bar
+
+def read_rest(FILE,LOG):
+	pos = FILE.tell()
+	notebytes = FILE.read(10)
+	log (LOG, pos, notebytes)
+	#    time  length  pos
+	# 00 08  00 0a  00 fc 00 00 00 00 
+	restdata = unpack('BBBBBB4B', notebytes)
+	new_rest = Rest( length=restdata[3], timecode=restdata[1])
+	return new_rest
 
 def read_note(FILE,LOG):
 	pos = FILE.tell()
@@ -209,6 +219,7 @@ class bar():
 		self.notelist = notelist
 
 
+
 def logprint(file, string):
 	file.write("\n" + string + "\n")
 
@@ -248,10 +259,57 @@ def bit(n, thing):
 		return thing & 1
 	return thing & (1<<n-1)
 
-offset = 0
+def fatal(string):
+	print ("FATAL ERROR:")
+	print("   "+ string)
+	exit()
 
+def pc2abc_key(pc_key):
+	abckeys=['Gb','Db','Ab','Eb','Bb','F','C','G','D','A','E','B']
+	try:
+		return (abckeys[pc_key-1])
+	except:
+		fatal ("Out of range PC key: {k}".format(k=pc_key))
+
+def pc2abc_clef(pc_clef):
+	abcclefs=["treble","C4","alto","bass"]
+	try:
+		return (abcclefs[pc_clef])
+	except:
+		fatal ("Out of range PC clef: {k}".format(k=pc_clef))
+
+def render_tune(tune):
+	print ("Rendering tune with {p} parts and {b} bars".format(p=tune.num_parts, b=tune.num_bars))
+	try:
+		firstpart=tune.part_list[0]
+	except:
+		fatal ("Can't find any parts to process!")
+	try:
+		firstbar=firstpart.bar_list[0]
+		tune.key=pc2abc_key(firstbar.key)
+	except:
+		fatal ("Can't find any bars to extract key!".format(p=p))
+	with open(ABCFILE, 'w') as ABC:
+		ABC.write("X:1\nT:\nC:\nL:1/4\n")
+		ABC.write("K:{k}\n".format(k=tune.key))
+		for p in range(len(tune.part_list)):
+			part = tune.part_list[p]
+			try:
+				firstbar=part.bar_list[0]
+				ABC.write("V:{v} clef={c}\n".format(v=p+1, c= pc2abc_clef(firstbar.clef)))
+				part.clef=pc2abc_clef(firstbar.clef)
+			except:
+				fatal ("Can't find any bars in part {p}!".format(p=p+1))
+			for bar in part.bar_list:
+				bar.render(ABC)
+
+
+
+
+
+tune = Tune()	#Make a new tune
 with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
-	tune = Tune()	#Make a new tune
+	
 	start_sequence =  get_bytes(PCFILE, LOG, 26)
 	print (''.join(start_sequence))
 	[unknown1] = get_char(PCFILE,LOG)
@@ -350,9 +408,12 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 			if rests_length:
 				print (" {n} rests".format(n=rests_length))
 				for i in range(rests_length):
-					slot3_data=get_bytes(PCFILE,LOG,10)
+					new_rest=read_rest(PCFILE,LOG)
+					new_muse_bar.add_rest(new_rest)
 			residue = get_bytes(PCFILE,LOG,12)
-			
+			this_part.add_bar(new_muse_bar)
+		tune.add_part(this_part)
+render_tune(tune)
 					
 			
 
