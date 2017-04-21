@@ -23,7 +23,11 @@ class Music_object():
 
 class Note(Music_object):
 	kind=2
-	accidental=0
+	offsets = [23, 13, 17, 11]
+	abc_low_notes = ['C','D','E','F','G','A','B']
+	abc_high_notes = ['c','d','e','f','g','a','b']
+	abc_suffixes = [",,,", ",,", ",", "", "", "'", "''", "'''"]
+	accidental=''
 	pitch = 0
 	dot =0
 	tie_start = 0
@@ -32,7 +36,7 @@ class Note(Music_object):
 	timecode = 0
 	beam_start = 0
 	beam_end = 0
-	def __init__(self, accidental=0, pitch=0, dot=0, 
+	def __init__(self, accidental='', pitch=0, dot=0, 
 		tie_start=0, tie_end=0, length=0, timecode=0, beam_start=0, beam_end=0):
 		self.accidental=accidental
 		self.pitch = pitch
@@ -43,8 +47,52 @@ class Note(Music_object):
 		self.timecode = timecode
 		self.beam_start = beam_start
 		self.beam_end = beam_end
-	def render(self, ABC):
-		ABC.write("N ")
+	def render(self, ABC, clef):
+		abcpitch = self.decode_pitch(clef)
+		abclength = decode_length(self.length, self.dot)
+		tie = ''
+		if self.tie_start:
+			tie="-"
+		space = " "
+		if self.beam_start:
+			space = ""
+		ABC.write(self.accidental+abcpitch+abclength+tie+space)
+	def decode_pitch(self, clef):
+		offset = self.offsets[clef]
+		internalPitch = offset - self.pitch
+		octave = internalPitch//7
+		note = internalPitch%7
+		notelist = self.abc_high_notes
+		if octave<4:
+			notelist = self.abc_low_notes
+		print ("Pitch: {p}; Note: {n}; octave: {o}".format(p=self.pitch, n=note,o=octave))
+		notesymbol = notelist[note]+self.abc_suffixes[octave]
+		return notesymbol
+
+def decode_length(l,d):
+	#Crotchet is 0a, minim 0b etc
+	#convert to abc "L=1/64" initially
+	abc_lengths = [1, 2, 8, 16, 32 ,64, 128, 256, 512, 1024]
+	try:
+		abc128_length = abc_lengths[l-5]
+		if d:
+			abc128_length += abc128_length//2
+		for divisor in [64,32,16,8,2,1]:
+			if abc128_length%divisor == 0:
+				numerator = abc128_length//divisor
+				denominator = 64//divisor
+				if denominator == 1:
+					if numerator == 1:
+						return ""
+					else:
+						return str(numerator)
+				else:
+					return str(numerator) + "/" + str(denominator)
+	except:
+		fatal("Note length {l} out of range".format(l=l))
+		
+			
+
 
 
 class Rest(Music_object):
@@ -54,8 +102,9 @@ class Rest(Music_object):
 	def __init__(self, length=0, timecode=0):
 		self.length = length
 		self.timecode =timecode
-	def render(self,ABC):
-		ABC.write("R")
+	def render(self, ABC, clef):
+		l = decode_length(self.length, 0)
+		ABC.write("z" + l + " " )
 		
 
 class Misc_object(Music_object):
@@ -87,9 +136,18 @@ class Muse_bar():
 		notes_and_rests= self.note_list + self.rest_list
 		self.event_list = sorted(notes_and_rests, key=lambda x: x.timecode, reverse=False)
 	def render(self, ABCFILE):
+		if self.clef != tune.current_clef:
+			ABCFILE.write("[K: clef={c}]".format(c=pc2abc_clef(self.clef)))
+			tune.current_clef=self.clef
+		if self.key != tune.key:
+			ABCFILE.write("[K:{k}]".format(k=pc2abc_key(self.key)))
+			tune.key=self.key
 		self.sort_events()
-		for event in self.event_list:
-			event.render(ABCFILE)
+		if len(self.event_list):
+			for event in self.event_list:
+				event.render(ABCFILE, self.clef)
+		else:
+			ABCFILE.write (" Z ")
 		ABCFILE.write(" | ")
 
 class Muse_part():
@@ -106,6 +164,11 @@ class Muse_part():
 class Tune():
 	title=0
 	composer=0
+	beats=0
+	unit =0
+	current_clef=''
+	time_sig=''
+	stik_list=[]
 	part_list = []
 	num_bars = 0
 	num_parts = 0
@@ -176,17 +239,27 @@ def read_rest(FILE,LOG):
 	new_rest = Rest( length=restdata[3], timecode=restdata[1])
 	return new_rest
 
+def read_stik_head(FILE,LOG):
+	pos = FILE.tell()
+	stikbytes = FILE.read(28)
+	log (LOG, pos, stikbytes)
+	stikdata = unpack('8sH7sb10s', stikbytes)
+	#LOG.write("\nCreating new stik item with num {n} and visibility {v}\n".format(n=stikdata[1], v=stikdata[3]))
+	new_stik = stik_header(start=stikdata[0], num=stikdata[1], middle=stikdata[2], visibility=stikdata[3], end=stikdata[4])
+	return new_stik
+
+
 def read_note(FILE,LOG):
 	pos = FILE.tell()
 	notebytes = FILE.read(28)
 	log (LOG, pos, notebytes)
 	#Type Stemdir Dot 2bytes Pitch 11bytes time length 5bytes Beamfrom(short)  Beamto(short)
-	# B     B     B     2s    B     11s     B      B     5s     H                H
-	notedata = unpack('BBB2sB11sBB5sHH', notebytes)
+	# B     B     B     2s    b     11s     B      B     5s     H                H
+	notedata = unpack('BBB2sb11sBB5sHH', notebytes)
 	dot_field = notedata[2]
 	type=notedata[0]
 	new_note = Note(
-		accidental=0, 
+		accidental='', 
 		pitch=notedata[4], 
 		dot=bit(1,dot_field), 
 		tie_start=bit(6,dot_field), 
@@ -209,14 +282,14 @@ def read_note(FILE,LOG):
 
 	
 
-class bar(): 
-	barheader = 0
-	misclist = []
-	notelist = []
-	def __init__(self,header,misclist,notelist):
-		self.header=header
-		self.misclist = misclist
-		self.notelist = notelist
+#class bar(): 
+#	barheader = 0
+#	misclist = []
+#	notelist = []
+#	def __init__(self,header,misclist,notelist):
+#		self.header=header
+#		self.misclist = misclist
+#		self.notelist = notelist
 
 
 
@@ -244,7 +317,7 @@ def get_bytes(FILE,LOG, n):
 
 def get_char(FILE,LOG):
 	pos=FILE.tell()
-	byte = unpack('c', FILE.read(1))
+	[byte] = unpack('c', FILE.read(1))
 	log(LOG, pos, byte)
 	return byte
 
@@ -286,22 +359,38 @@ def render_tune(tune):
 		fatal ("Can't find any parts to process!")
 	try:
 		firstbar=firstpart.bar_list[0]
-		tune.key=pc2abc_key(firstbar.key)
+		tune.key=firstbar.key
+		tune.beats=firstbar.beats
+		tune.unit=firstbar.unit
+		denominator = ['?','?','?','512','256','128','64','32','16','8','4','2','1','?','?'][firstbar.unit]
+		tune.time_sig="{n}/{d}".format(n=tune.beats, d=denominator)
 	except:
-		fatal ("Can't find any bars to extract key!".format(p=p))
+		fatal ("Can't find any bars to extract key!")
 	with open(ABCFILE, 'w') as ABC:
 		ABC.write("X:1\nT:\nC:\nL:1/4\n")
-		ABC.write("K:{k}\n".format(k=tune.key))
+		p = str([x+1 for x in list(range(tune.num_parts))]).strip('[]')
+		ABC.write("%%score [{p}]\n".format(p=p))
+		ABC.write("M:"+tune.time_sig+"\n")
+		ABC.write("K:{k}\n".format(k=pc2abc_key(tune.key)))
 		for p in range(len(tune.part_list)):
 			part = tune.part_list[p]
 			try:
 				firstbar=part.bar_list[0]
 				ABC.write("V:{v} clef={c}\n".format(v=p+1, c= pc2abc_clef(firstbar.clef)))
 				part.clef=pc2abc_clef(firstbar.clef)
+				tune.current_clef=firstbar.clef
 			except:
 				fatal ("Can't find any bars in part {p}!".format(p=p+1))
+			barcount = 1
 			for bar in part.bar_list:
-				bar.render(ABC)
+				print ("{b}: {v}".format(b=barcount, v=tune.stik_list[barcount].visible))
+				if  tune.stik_list[barcount].visible:
+					bar.render(ABC)
+					if not barcount%5:
+						if barcount<len(part.bar_list):
+							ABC.write("%Bar {n}\n".format(n=barcount))	
+				barcount+=1
+			ABC.write("\n")
 
 
 
@@ -347,21 +436,21 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 	stikassertion = get_bytes(PCFILE, LOG,4)
 	print (stikassertion)
 	#Read the STIK
-	stiklist=[]
+	#stiklist=[]
 	for b in range(tune.num_bars+1):
-		print ("Processing stik bar {n}".format(n=b))
-		new_stik = stik_header(get_bytes(PCFILE, LOG, 8), 
-						get_short(PCFILE, LOG),
-						get_bytes(PCFILE,LOG,7),
-						get_char(PCFILE,LOG),
-						get_bytes(PCFILE, LOG, 10))
+		print ("Processing stik bar {n}".format(n=b+1))
+		logprint (LOG, "Processing Stik for bar {n}".format(n=b+1))
+		new_stik = read_stik_head(PCFILE,LOG)
 		if new_stik.num:
 			stikdata_list=[]
 			for i in range(new_stik.num):
 				d = stik_data(get_bytes(PCFILE, LOG, 8))
 			stikdata_list.append(d)
 			new_stik.data = stikdata_list
-		stiklist.append(new_stik)
+		tune.stik_list.append(new_stik)
+	#for i in range(tune.num_bars+1):
+	#	print ("Stik {n}: Visibility {v}; num {num}".format(n=1+i, v=tune.stik_list[i].visible, num=tune.stik_list[i].num))
+	#exit()
 	#Read the muse
 	museassertion = get_bytes(PCFILE, LOG,4)
 	print (museassertion)
