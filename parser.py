@@ -13,10 +13,13 @@ from struct import unpack
 import sys
 from collections import namedtuple
 
-LOGFILE = sys.argv[1] + '.log'
-PCFILE = sys.argv[1] + '.PC'
-ABCFILE = sys.argv[1] + '.ABC'
 
+
+PCFILE = sys.argv[1] 
+name_parts = PCFILE.split('.',1)	#Splits filename into 2 parts
+file_stem=name_parts[0]
+ABCFILE = file_stem + '.abc'
+LOGFILE = file_stem + '.log'
 
 class Music_object():
 	kind=0
@@ -115,6 +118,7 @@ class Muse_bar():
 	key	= 0
 	beats = 0
 	unit = 0
+	volta=''
 	misc_list = []
 	note_list = []
 	rest_list = []
@@ -124,6 +128,7 @@ class Muse_bar():
 		self.key	= key
 		self.beats = beats
 		self.unit = unit
+		self.volta=''
 		self.note_list = []
 		self.rest_list = []
 		self.event_list= []
@@ -132,6 +137,8 @@ class Muse_bar():
 		self.note_list.append(some_note)
 	def add_rest(self, some_rest):
 		self.rest_list.append(some_rest)
+	def add_misc(self, some_misc):
+		self.misc_list.append(some_misc)
 	def sort_events(self):
 		notes_and_rests= self.note_list + self.rest_list
 		self.event_list = sorted(notes_and_rests, key=lambda x: x.timecode, reverse=False)
@@ -142,6 +149,8 @@ class Muse_bar():
 		if self.key != tune.key:
 			ABCFILE.write("[K:{k}]".format(k=pc2abc_key(self.key)))
 			tune.key=self.key
+		if self.volta:
+			ABCFILE.write("[{v} ".format(v=self.volta))
 		self.sort_events()
 		if len(self.event_list):
 			for event in self.event_list:
@@ -162,7 +171,7 @@ class Muse_part():
 		self.bar_list.append(some_bar)
 
 class Tune():
-	title=0
+	title=''
 	composer=0
 	beats=0
 	unit =0
@@ -266,8 +275,8 @@ def read_note(FILE,LOG):
 		tie_end=bit(5,dot_field), 
 		length=notedata[7], 
 		timecode=notedata[6], 
-		beam_start=notedata[9], 
-		beam_end=notedata[10])
+		beam_start=notedata[10], 
+		beam_end=notedata[9])
 	if bit(4,type):
 		new_note.accidental='='
 	elif bit(3, type):
@@ -276,22 +285,9 @@ def read_note(FILE,LOG):
 		new_note.accidental = '^'
 	if new_note.tie_start:
 		dot_data = get_bytes(PCFILE,LOG,12)
-	if type in [0x42, 0x43, 0x47, 0x4a, 0x4b, 0xca]:
+	if type in [0x42, 0x43, 0x46, 0x47, 0x4a, 0x4b, 0xca, 0xcb]:
 		dummy = get_bytes(PCFILE, LOG, 2)
 	return new_note
-
-	
-
-#class bar(): 
-#	barheader = 0
-#	misclist = []
-#	notelist = []
-#	def __init__(self,header,misclist,notelist):
-#		self.header=header
-#		self.misclist = misclist
-#		self.notelist = notelist
-
-
 
 def logprint(file, string):
 	file.write("\n" + string + "\n")
@@ -315,6 +311,14 @@ def get_bytes(FILE,LOG, n):
 	log(LOG, pos, bytes)
 	return bytes
 
+def get_string(FILE,LOG, n):
+	pos=FILE.tell()
+	bytes=FILE.read(n)
+	fmt = '{n}s'.format(n=n)
+	[text] = unpack(fmt, bytes)
+	log(LOG, pos, bytes)
+	return text
+
 def get_char(FILE,LOG):
 	pos=FILE.tell()
 	[byte] = unpack('c', FILE.read(1))
@@ -326,6 +330,25 @@ def get_short(FILE,LOG):
 	[s] = unpack('H', FILE.read(2))
 	log_short(LOG, pos, s)
 	return s
+
+def get_misc18(FILE,LOG):
+	pos=FILE.tell()
+	buffer=FILE.read(24)
+	log(LOG,pos,buffer)
+	part1,extras,part1a = unpack('20sH2s',buffer)
+	if extras:
+		extras+=1
+	pos=FILE.tell()
+	part2 = FILE.read(10+extras)
+	log(LOG,pos,part2)
+	return part2	
+
+def get_volta(FILE,LOG):
+	pos=FILE.tell()
+	buffer=FILE.read(54)
+	log(LOG,pos,buffer)
+	part1, volta, part2 = unpack('22ss31s',buffer)
+	return volta
 
 def bit(n, thing):
 	if n==1:
@@ -367,9 +390,23 @@ def render_tune(tune):
 	except:
 		fatal ("Can't find any bars to extract key!")
 	with open(ABCFILE, 'w') as ABC:
-		ABC.write("X:1\nT:\nC:\nL:1/4\n")
-		p = str([x+1 for x in list(range(tune.num_parts))]).strip('[]')
-		ABC.write("%%score [{p}]\n".format(p=p))
+		ABC.write("%abc-2.1\n")
+		ABC.write(get_strings(tune))
+		ABC.write("\nX:1\n")
+		if tune.title:
+			ABC.write(tune.title)
+		else:
+			ABC.write("T:Unknown\n")
+		if tune.composer:
+			ABC.write(tune.composer)
+		else:
+			ABC.write("C:\n")
+		ABC.write("L:1/4\n")
+		#p = str([x+1 for x in list(range(tune.num_parts))]).strip('[],')
+		p=""
+		for x in range(tune.num_parts):
+			p+= str(x+1) + " "
+		ABC.write("%%score [ {p}]\n".format(p=p))
 		ABC.write("M:"+tune.time_sig+"\n")
 		ABC.write("K:{k}\n".format(k=pc2abc_key(tune.key)))
 		for p in range(len(tune.part_list)):
@@ -377,6 +414,12 @@ def render_tune(tune):
 			try:
 				firstbar=part.bar_list[0]
 				ABC.write("V:{v} clef={c}\n".format(v=p+1, c= pc2abc_clef(firstbar.clef)))
+				mid =[ "40", '41', '41', '42']
+				try:
+					midi_inst = mid[firstbar.clef]
+				except:
+					midi_inst = "41"
+				ABC.write("%%MIDI program {n}\n".format(n=midi_inst))
 				part.clef=pc2abc_clef(firstbar.clef)
 				tune.current_clef=firstbar.clef
 			except:
@@ -392,9 +435,24 @@ def render_tune(tune):
 				barcount+=1
 			ABC.write("\n")
 
-
-
-
+def get_strings(tune):
+	misc_strings=""
+	titlestring=""
+	composerstring=""
+	finds=0
+	for p in tune.part_list:
+		for bar in p.bar_list:
+			if len(bar.misc_list):
+				finds+=1
+			for m in bar.misc_list:
+				misc_strings += "% " + m + "\n"
+				if finds==1:
+					titlestring+="T:{s}\n".format(s=m)
+				if finds==2:
+					composerstring+="C:{c}\n".format(c=m)
+	tune.title=titlestring
+	tune.composer=composerstring
+	return misc_strings
 
 tune = Tune()	#Make a new tune
 with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
@@ -463,8 +521,8 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 			logprint (LOG, "Processing notes for bar {n}".format(n=b+1))
 			#barheader = read_barhead(PCFILE,LOG)
 			new_muse_bar = read_barstuff(PCFILE,LOG)
-			misclist=[]
-			notelist=[]
+			#misclist=[]
+			#notelist=[]
 			misclength= get_short(PCFILE,LOG)
 			if misclength:
 				print (" {n} miscellaneous items".format(n=misclength))
@@ -472,14 +530,16 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 					miscdata =0
 					misc_type=get_short(PCFILE,LOG)
 					if misc_type==0x18:
-						miscdata=get_bytes(PCFILE,LOG,34)
+						miscdata=get_misc18(PCFILE,LOG)
 					elif misc_type==0x12:
 						dummy = get_bytes(PCFILE, LOG, 24)
 						stringlength=get_short(PCFILE,LOG)
-						miscdata = get_bytes(PCFILE, LOG, stringlength)
-					
-					misclist.append(misc_type)
-					misclist.append(miscdata)
+						miscdata = get_string(PCFILE, LOG, stringlength)
+						new_muse_bar.add_misc(miscdata)
+
+					elif misc_type==0x30:
+						miscdata = get_volta(PCFILE,LOG)
+						new_muse_bar.volta=miscdata
 			notes_length = get_short(PCFILE,LOG)
 			if notes_length:
 				print (" {n} notes".format(n=notes_length))
