@@ -33,15 +33,16 @@ Things that work:
 - beams
 - titles (partial)
 - accidentals
+- repeats
+- first and second time endings
 
 Things that don't work:
 - anything other than 'type 12' .PC files
 - polyphony within a voice (ie chords)
 - multiple voices per staff
-- repeats, double barlines, dotted barlines, invisible barlines
+- double barlines, dotted barlines, invisible barlines
 - clefs other than treble, alto, bass
 - C and C| time signatures
-- first and second time endings
 - dynamic markings etc
 - pedal notation
 - guitar chords
