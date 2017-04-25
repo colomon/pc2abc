@@ -12,8 +12,7 @@ import re
 from struct import unpack
 import sys
 from collections import namedtuple
-
-
+from operator import  attrgetter
 
 PCFILE = sys.argv[1] 
 name_parts = PCFILE.split('.',1)	#Splits filename into 2 parts
@@ -21,8 +20,14 @@ file_stem=name_parts[0]
 ABCFILE = file_stem + '.abc'
 LOGFILE = file_stem + '.log'
 
+#Default midi instruments
+#Determined by the clef
+t_midi	= 40 #treble clef instrument
+a_midi	= 40 #alto clef instrument
+b_midi	= 42 #bass clef instrument
+
 class Music_object():
-	kind=0
+	kind=1
 
 class Note(Music_object):
 	kind=2
@@ -94,10 +99,6 @@ def decode_length(l,d):
 	except:
 		fatal("Note length {l} out of range".format(l=l))
 		
-			
-
-
-
 class Rest(Music_object):
 	kind=3
 	length = 0
@@ -113,6 +114,20 @@ class Rest(Music_object):
 class Misc_object(Music_object):
 	kind=1
 
+class Clef_change(Music_object):
+	kind = 0
+	timecode = 0
+	clef = 0
+	abc = ""
+	def __init__(self, timecode, clef):
+		self.timecode= timecode
+		self.clef = clef
+		self.abc = "[K: clef={c}] ".format(c=pc2abc_clef(self.clef))
+		tune.current_clef = clef
+	def render(self, ABC, clef):
+		ABC.write(self.abc)
+		tune.current_clef = self.clef
+
 class Muse_bar():
 	clef = 0
 	key	= 0
@@ -120,6 +135,7 @@ class Muse_bar():
 	unit = 0
 	volta=''
 	misc_list = []
+	info_list = []
 	note_list = []
 	rest_list = []
 	event_list = []
@@ -135,14 +151,17 @@ class Muse_bar():
 		self.rest_list = []
 		self.event_list= []
 		self.misc_list = []
+		self.info_list = []
 	def add_note(self, some_note):
 		self.note_list.append(some_note)
 	def add_rest(self, some_rest):
 		self.rest_list.append(some_rest)
 	def add_misc(self, some_misc):
 		self.misc_list.append(some_misc)
+	def add_info(self, some_info):
+		self.info_list.append(some_info)
 	def sort_events(self):
-		notes_and_rests= self.note_list + self.rest_list
+		notes_and_rests= self.info_list + self.note_list + self.rest_list  
 		self.event_list = sorted(notes_and_rests, key=lambda x: x.timecode, reverse=False)
 	def render(self, ABCFILE):
 		if self.clef != tune.current_clef:
@@ -156,10 +175,19 @@ class Muse_bar():
 		self.sort_events()
 		if len(self.event_list):
 			for event in self.event_list:
-				event.render(ABCFILE, self.clef)
+				event.render(ABCFILE, tune.current_clef)
 		else:
 			ABCFILE.write (" Z ")
 		ABCFILE.write(" {b} ".format(b=self.stik.render_line()))
+	def visibility(self):
+		#Bar is visible if the visibility bit is set in the Stik, or we haven't had a type 3 barline yet
+		if self.stik.visible:
+			return 1
+		stik_index=tune.stik_list.index(self.stik)
+		for i in range(stik_index):
+			if tune.stik_list[i].line_type==3:
+				return 0
+		return 1
 
 class Muse_part():
 	part_number = 0
@@ -360,6 +388,15 @@ def get_misc18(FILE,LOG):
 	log(LOG,pos,part2)
 	return part2	
 
+def get_clefchange(FILE,LOG):
+	pos=FILE.tell()
+	buffer=FILE.read(24)
+	log(LOG,pos,buffer)
+	#part1, c1, c2, part2, timecode, part3 = unpack('12sBB3sB6s', buffer)
+	part1, timecode, part2, c1, c2, part3 = unpack('3sB8sBB10s', buffer)
+	info_obj = Clef_change(timecode, c2)
+	return info_obj
+
 def get_volta(FILE,LOG):
 	pos=FILE.tell()
 	buffer=FILE.read(54)
@@ -431,7 +468,7 @@ def render_tune(tune):
 			part = tune.part_list[p]
 			try:
 				firstbar=part.bar_list[0]
-				ABC.write("V:{v} clef={c}\n".format(v=p+1, c= pc2abc_clef(firstbar.clef)))
+				ABC.write("%\nV:{v} clef={c}\n".format(v=p+1, c= pc2abc_clef(firstbar.clef)))
 				mid =[ "40", '41', '41', '42']
 				try:
 					midi_inst = mid[firstbar.clef]
@@ -443,15 +480,19 @@ def render_tune(tune):
 			except:
 				fatal ("Can't find any bars in part {p}!".format(p=p+1))
 			barcount = 1
+			newlineflag=0
 			for bar in part.bar_list:
 				print ("{b}: {v}".format(b=barcount, v=tune.stik_list[barcount].visible))
-				#if  tune.stik_list[barcount].visible:
-				bar.render(ABC)
-				if not barcount%5:
-					if barcount<len(part.bar_list):
-						ABC.write("%Bar {n}\n".format(n=barcount))	
+				if  bar.visibility():
+					newlineflag=0
+					bar.render(ABC)
+					if not barcount%5:
+						if barcount<len(part.bar_list):
+							ABC.write("%Bar {n}\n".format(n=barcount))	
+							newlineflag=1
 				barcount+=1
-			ABC.write("\n")
+			if not newlineflag:
+				ABC.write("\n")
 
 def get_strings(tune):
 	misc_strings=""
@@ -555,7 +596,9 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 						stringlength=get_short(PCFILE,LOG)
 						miscdata = get_string(PCFILE, LOG, stringlength)
 						new_muse_bar.add_misc(miscdata)
-
+					elif misc_type==0x000e:
+						miscdata = get_clefchange(PCFILE, LOG)
+						new_muse_bar.add_info(miscdata)
 					elif misc_type==0x30:
 						miscdata = get_volta(PCFILE,LOG)
 						new_muse_bar.volta=miscdata
