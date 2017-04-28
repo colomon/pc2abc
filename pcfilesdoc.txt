@@ -70,3 +70,8 @@ Tie forwards--  |       |
 Tie backwards---        |
                         |
 Simple dot---------------
+
+
+clef/key
+
+60 hex = key 6 clef 0

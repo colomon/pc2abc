@@ -19,12 +19,13 @@ Current progress
 
 Things that work:
 - single line of music per staff
-- multiple staves (one monophonic voice per staff)
+- multiple staves (one voice per staff)
+- chords (not fully tested)
 - translation of basic notes and rests
 - note range (abc notation) from C,,, to b'''
 - ordinary barlines
 - treble, alto, bass clefs
-- changes of clef within the tune (not fully tested)
+- changes of clef within the tune 
 - keys: major and minor from 6 flats to 5 sharps
 - changes of key withing the tune (not fully tested)
 - time signatures (n/m format)
@@ -38,7 +39,6 @@ Things that work:
 
 Things that don't work:
 - anything other than 'type 12' .PC files
-- polyphony within a voice (ie chords)
 - multiple voices per staff
 - double barlines, dotted barlines, invisible barlines
 - clefs other than treble, alto, bass
@@ -49,7 +49,7 @@ Things that don't work:
 - song lyrics
 - slurs
 - midi instruments (though some basic defaults are chosen by the program)
-- stem-up and stem-down (these are encoded for every note in .PC files)
+- stem-up and stem-down (these are encoded for every note in .PC files but not usually in abc)
 - tablature
 - tempo markings
 - ornaments
