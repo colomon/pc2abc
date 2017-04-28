@@ -22,12 +22,27 @@ LOGFILE = file_stem + '.log'
 
 #Default midi instruments
 #Determined by the clef
-t_midi	= 40 #treble clef instrument
-a_midi	= 40 #alto clef instrument
-b_midi	= 42 #bass clef instrument
+midi_t	= 40 #treble clef instrument
+midi_a	= 40 #alto clef instrument
+midi_b	= 42 #bass clef instrument
 
 class Music_object():
 	kind=1
+
+class Chord(Music_object):
+	kind =5
+	timecode = 0
+	note_list=[]
+	def __init__(self, timecode):
+		self.timecode = timecode
+		self.note_list=[]
+	def add_note(self, note):
+		self.note_list.append(note)
+	def render(self, ABC, clef):
+		ABC.write("[")
+		for note in self.note_list:
+			note.render(ABC, clef)
+		ABC.write("]")
 
 class Note(Music_object):
 	kind=2
@@ -170,8 +185,38 @@ class Muse_bar():
 		if self.key != tune.key:
 			ABCFILE.write("[K:{k}]".format(k=pc2abc_key(self.key)))
 			tune.key=self.key
+		if (self.beats != tune.beats) or (self.unit != tune.unit):
+			tune.time_sig = make_time_sig(self.beats, self.unit)
+			tune.beats = self.beats
+			tune.unit = self.unit
+			ABCFILE.write("[M:{t}] ".format(t=tune.time_sig))
 		if self.volta:
 			ABCFILE.write("[{v} ".format(v=self.volta))
+		#Check note list for chords
+		timecode_list = [n.timecode for n in self.note_list]
+		if len(timecode_list) != len(set(timecode_list)):
+			print ("Chords found!")
+			i =0
+			new_list = []
+			while i < len(self.note_list):
+				if i == len(self.note_list) -1: # Deal with last note in list which can't start a chord
+					new_list.append(self.note_list[i])
+				else:
+					if self.note_list[i].timecode == self.note_list[i+1].timecode:
+						notes_added=0
+						new_chord = Chord(timecode=self.note_list[i].timecode)
+						for j in range(i, len(self.note_list)):
+							if self.note_list[i].timecode == self.note_list[j].timecode:
+								new_chord.add_note(self.note_list[j])
+								notes_added += 1
+								print ("Adding note to chord")
+						i+=notes_added
+						new_list.append(new_chord)
+					else:
+						new_list.append(self.note_list[i])
+						i +=1
+			#exit()
+			self.note_list=new_list
 		self.sort_events()
 		if len(self.event_list):
 			for event in self.event_list:
@@ -428,6 +473,11 @@ def pc2abc_clef(pc_clef):
 	except:
 		fatal ("Out of range PC clef: {k}".format(k=pc_clef))
 
+def make_time_sig(beats, units):
+		denominator = ['?','?','?','512','256','128','64','32','16','8','4','2','1','?','?'][units]
+		time_sig="{n}/{d}".format(n=beats, d=denominator)
+		return time_sig
+
 def render_tune(tune):
 	print ("Rendering tune with {p} parts and {b} bars".format(p=tune.num_parts, b=tune.num_bars))
 	try:
@@ -439,8 +489,7 @@ def render_tune(tune):
 		tune.key=firstbar.key
 		tune.beats=firstbar.beats
 		tune.unit=firstbar.unit
-		denominator = ['?','?','?','512','256','128','64','32','16','8','4','2','1','?','?'][firstbar.unit]
-		tune.time_sig="{n}/{d}".format(n=tune.beats, d=denominator)
+		tune.time_sig=make_time_sig(tune.beats, tune.unit)
 	except:
 		fatal ("Can't find any bars to extract key!")
 	with open(ABCFILE, 'w') as ABC:
@@ -469,7 +518,7 @@ def render_tune(tune):
 			try:
 				firstbar=part.bar_list[0]
 				ABC.write("%\nV:{v} clef={c}\n".format(v=p+1, c= pc2abc_clef(firstbar.clef)))
-				mid =[ "40", '41', '41', '42']
+				mid =[ str(midi_t), str(midi_a), str(midi_a), str(midi_b)]
 				try:
 					midi_inst = mid[firstbar.clef]
 				except:
@@ -477,6 +526,9 @@ def render_tune(tune):
 				ABC.write("%%MIDI program {n}\n".format(n=midi_inst))
 				part.clef=pc2abc_clef(firstbar.clef)
 				tune.current_clef=firstbar.clef
+				tune.beats=firstbar.beats
+				tune.unit = firstbar.unit
+				tune.time_sig=make_time_sig(firstbar.beats, firstbar.unit)
 			except:
 				fatal ("Can't find any bars in part {p}!".format(p=p+1))
 			barcount = 1
