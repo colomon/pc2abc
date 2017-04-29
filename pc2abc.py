@@ -13,6 +13,7 @@ from struct import unpack
 import sys
 from collections import namedtuple
 from operator import  attrgetter
+from itertools import groupby
 
 PCFILE = sys.argv[1] 
 name_parts = PCFILE.split('.',1)	#Splits filename into 2 parts
@@ -178,7 +179,24 @@ class Muse_bar():
 	def sort_events(self):
 		notes_and_rests= self.info_list + self.note_list + self.rest_list  
 		self.event_list = sorted(notes_and_rests, key=lambda x: x.timecode, reverse=False)
-	def render(self, ABCFILE):
+	def find_chords(self):
+		#Check note list for chords
+		timecode_list = [n.timecode for n in self.note_list]
+		if len(timecode_list) == len(set(timecode_list)):
+			return
+		print ("Chords found!")
+		new_note_list=[]
+		for key, group in groupby(self.note_list, lambda x: x.timecode):
+			item_list=[x for x in group]	# Turn iterator into a list
+			if len(item_list) == 1: 		# Not a chord
+				new_note_list.append(item_list[0])
+			else:
+				new_chord = Chord(timecode=key)
+				for n in item_list:
+					new_chord.add_note(n)
+				new_note_list.append(new_chord)
+		self.note_list = new_note_list
+   	def render(self, ABCFILE):
 		if self.clef != tune.current_clef:
 			ABCFILE.write("[K: clef={c}]".format(c=pc2abc_clef(self.clef)))
 			tune.current_clef=self.clef
@@ -192,31 +210,7 @@ class Muse_bar():
 			ABCFILE.write("[M:{t}] ".format(t=tune.time_sig))
 		if self.volta:
 			ABCFILE.write("[{v} ".format(v=self.volta))
-		#Check note list for chords
-		timecode_list = [n.timecode for n in self.note_list]
-		if len(timecode_list) != len(set(timecode_list)):
-			print ("Chords found!")
-			i =0
-			new_list = []
-			while i < len(self.note_list):
-				if i == len(self.note_list) -1: # Deal with last note in list which can't start a chord
-					new_list.append(self.note_list[i])
-				else:
-					if self.note_list[i].timecode == self.note_list[i+1].timecode:
-						notes_added=0
-						new_chord = Chord(timecode=self.note_list[i].timecode)
-						for j in range(i, len(self.note_list)):
-							if self.note_list[i].timecode == self.note_list[j].timecode:
-								new_chord.add_note(self.note_list[j])
-								notes_added += 1
-								print ("Adding note to chord")
-						i+=notes_added
-						new_list.append(new_chord)
-					else:
-						new_list.append(self.note_list[i])
-						i +=1
-			#exit()
-			self.note_list=new_list
+		self.find_chords()
 		self.sort_events()
 		if len(self.event_list):
 			for event in self.event_list:
