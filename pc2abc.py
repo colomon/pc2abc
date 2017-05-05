@@ -8,11 +8,11 @@
 # Each part has a list of Muse_bars
 # Each Muse_bar has a list of Misc_objects and a list of Notes and a list of Rests
 
-import re
+#import re
 from struct import unpack
 import sys
-from collections import namedtuple
-from operator import  attrgetter
+#from collections import namedtuple
+#from operator import  attrgetter
 from itertools import groupby
 
 PCFILE = sys.argv[1] 
@@ -26,6 +26,17 @@ LOGFILE = file_stem + '.log'
 midi_t	= 40 #treble clef instrument
 midi_a	= 40 #alto clef instrument
 midi_b	= 42 #bass clef instrument
+
+attribution= """%
+% Original edition transcribed and edited by Albert Folop: 
+% http://imslp.org/wiki/Category:Folop_Viol_Music_Collection
+% That edition released under Creative Commons Attribution-NonCommercial-ShareAlike 3.0 licence
+% (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+% This edition converted to abc by Steve West and also released under 
+% Creative Commons Attribution-NonCommercial-ShareAlike 3.0 licence
+% (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+"""
 
 class Music_object():
 	kind=1
@@ -60,8 +71,11 @@ class Note(Music_object):
 	timecode = 0
 	beam_start = 0
 	beam_end = 0
+	tuplet=0
+	cont = 0
+
 	def __init__(self, accidental='', pitch=0, dot=0, 
-		tie_start=0, tie_end=0, length=0, timecode=0, beam_start=0, beam_end=0):
+		tie_start=0, tie_end=0, length=0, timecode=0, cont=0, tuplet=0, beam_start=0, beam_end=0):
 		self.accidental=accidental
 		self.pitch = pitch
 		self.dot =dot
@@ -69,9 +83,13 @@ class Note(Music_object):
 		self.tie_end = tie_end
 		self.length = length
 		self.timecode = timecode
+		self.cont=cont
+		self.tuplet=tuplet
 		self.beam_start = beam_start
 		self.beam_end = beam_end
 	def render(self, ABC, clef):
+		if self.tuplet and self.cont:
+			ABC.write("({n} ".format(n=self.tuplet))
 		abcpitch = self.decode_pitch(clef)
 		abclength = decode_length(self.length, self.dot)
 		tie = ''
@@ -126,7 +144,6 @@ class Rest(Music_object):
 		l = decode_length(self.length, 0)
 		ABC.write("z" + l + " " )
 		
-
 class Misc_object(Music_object):
 	kind=1
 
@@ -143,6 +160,14 @@ class Clef_change(Music_object):
 	def render(self, ABC, clef):
 		ABC.write(self.abc)
 		tune.current_clef = self.clef
+
+class Fermata(Music_object):
+	kind=6
+	timecode=0
+	def __init__(self, timecode):
+		self.timecode=timecode
+	def render(self, ABC, clef):
+		ABC.write("!fermata!")
 
 class Muse_bar():
 	clef = 0
@@ -170,6 +195,17 @@ class Muse_bar():
 		self.info_list = []
 	def add_note(self, some_note):
 		self.note_list.append(some_note)
+	def check_tied_accidentals(self):
+		#Check for the special case where the first note ina bar is tied
+		#from the previous bar and has an accidental applied
+		first_note = self.note_list[0]
+		if first_note.tie_end and first_note.accidental:
+			for n in range(1, len(self.note_list)):
+				if self.note_list[n].pitch == first_note.pitch:
+					if not self.note_list[n].accidental:
+						self.note_list[n].accidental = first_note.accidental
+					return
+		return
 	def add_rest(self, some_rest):
 		self.rest_list.append(some_rest)
 	def add_misc(self, some_misc):
@@ -293,22 +329,15 @@ class stik_header():
 		else:
 			return "|"
 
-
-
 class stik_data():
 	contents=0
 	def __init__(self, c):
 		self.contents=c
 	
-
 class font_data():
 	contents=0
 	def __init__(self,stuff):
 		self.contents = stuff
-
-
-
-
 
 def read_barstuff(FILE, LOG):
 	pos = FILE.tell()
@@ -346,9 +375,10 @@ def read_note(FILE,LOG):
 	pos = FILE.tell()
 	notebytes = FILE.read(28)
 	log (LOG, pos, notebytes)
-	#Type Stemdir Dot 2bytes Pitch 11bytes time length 5bytes Beamfrom(short)  Beamto(short)
-	# B     B     B     2s    b     11s     B      B     5s     H                H
-	notedata = unpack('BBB2sb11sBB5sHH', notebytes)
+#Type Stemdir Dot 2bytes Pitch 8bytes Cont  2b  time length byte Tuplet bytes Beamfrom(short)  Beamto(short)
+# B     B     B     2s    b     8s      B   2s   B      B    B     B     3s     H                H
+# 0     1     2     3     4      5      6   7    8      9    10    11    12     13               14
+	notedata = unpack('BBB2sb8sB2sBBBB3sHH', notebytes) 
 	dot_field = notedata[2]
 	type=notedata[0]
 	new_note = Note(
@@ -357,10 +387,12 @@ def read_note(FILE,LOG):
 		dot=bit(1,dot_field), 
 		tie_start=bit(6,dot_field), 
 		tie_end=bit(5,dot_field), 
-		length=notedata[7], 
-		timecode=notedata[6], 
-		beam_start=notedata[10], 
-		beam_end=notedata[9])
+		length=notedata[9], 
+		timecode=notedata[8], 
+		cont =notedata[6],
+		tuplet = notedata[11],
+		beam_start=notedata[14], 
+		beam_end=notedata[13])
 	if bit(4,type):
 		new_note.accidental='='
 	elif bit(3, type):
@@ -369,6 +401,12 @@ def read_note(FILE,LOG):
 		new_note.accidental = '^'
 	if new_note.tie_start:
 		dot_data = get_bytes(PCFILE,LOG,12)
+	if new_note.tuplet and new_note.cont:
+		pos=FILE.tell()
+		notebytes = FILE.read(26)
+		log(LOG,pos,notebytes)
+		dummy1, tuplet, dummy2 = unpack('BB24s', notebytes)
+		new_note.tuplet=tuplet
 	if type in [0x42, 0x43, 0x46, 0x47, 0x4a, 0x4b, 0xca, 0xcb]:
 		dummy = get_bytes(PCFILE, LOG, 2)
 	return new_note
@@ -387,7 +425,6 @@ def log_short(file,pos,num):
 	file.write(( '{0:04x}'.format(num)) )
 	file.write("\n")
 	
-
 def get_bytes(FILE,LOG, n):
 	pos=FILE.tell()
 	fmt = '{n}c'.format(n=n)
@@ -427,6 +464,17 @@ def get_misc18(FILE,LOG):
 	log(LOG,pos,part2)
 	return part2	
 
+def get_misc12(FILE,LOG):
+	pos=FILE.tell()
+	buffer=FILE.read(24)
+	log(LOG,pos,buffer)
+	part1, stringflag,part2= unpack('8sH14s', buffer)
+	if stringflag:
+		stringlength=get_short(PCFILE,LOG)
+		miscdata = get_string(PCFILE, LOG, stringlength)
+		return miscdata
+	return ''
+
 def get_clefchange(FILE,LOG):
 	pos=FILE.tell()
 	buffer=FILE.read(24)
@@ -442,6 +490,17 @@ def get_volta(FILE,LOG):
 	log(LOG,pos,buffer)
 	part1, volta, part2 = unpack('22ss31s',buffer)
 	return volta
+
+def get_decoration(FILE,LOG):
+	pos=FILE.tell()
+	buffer=FILE.read(36)
+	log(LOG,pos,buffer)
+	timecode, residue, extra = unpack('H32sH', buffer)
+	if extra:
+		pos=FILE.tell()
+		buffer=FILE.read(10*extra)
+		log(LOG,pos,buffer)
+	return Fermata(timecode)
 
 def bit(n, thing):
 	if n==1:
@@ -488,6 +547,7 @@ def render_tune(tune):
 		fatal ("Can't find any bars to extract key!")
 	with open(ABCFILE, 'w') as ABC:
 		ABC.write("%abc-2.1\n")
+		ABC.write(attribution)
 		ABC.write(get_strings(tune))
 		ABC.write("%%measurenb 0\n%%squarebreve\n")
 		ABC.write("\nX:1\n")
@@ -505,6 +565,7 @@ def render_tune(tune):
 		for x in range(tune.num_parts):
 			p+= str(x+1) + " "
 		ABC.write("%%score [ {p}]\n".format(p=p))
+		ABC.write("%%linebreak\n")
 		ABC.write("M:"+tune.time_sig+"\n")
 		ABC.write("K:{k}\n".format(k=pc2abc_key(tune.key)))
 		for p in range(len(tune.part_list)):
@@ -627,7 +688,7 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 			#barheader = read_barhead(PCFILE,LOG)
 			new_muse_bar = read_barstuff(PCFILE,LOG)
 			new_muse_bar.stik =tune.stik_list[b+1]
-			#misclist=[]
+			misclist=[]
 			#notelist=[]
 			misclength= get_short(PCFILE,LOG)
 			if misclength:
@@ -635,13 +696,14 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 				for i in range(misclength):
 					miscdata =0
 					misc_type=get_short(PCFILE,LOG)
-					if misc_type==0x18:
+					if misc_type in [0x18, 0x19]:
 						miscdata=get_misc18(PCFILE,LOG)
 					elif misc_type==0x12:
-						dummy = get_bytes(PCFILE, LOG, 24)
-						stringlength=get_short(PCFILE,LOG)
-						miscdata = get_string(PCFILE, LOG, stringlength)
+						miscdata = get_misc12(PCFILE,LOG)
 						new_muse_bar.add_misc(miscdata)
+					elif misc_type==0x15:
+						dummy = get_bytes(PCFILE, LOG, 34)
+						#MF sign to be processed
 					elif misc_type==0x000e:
 						miscdata = get_clefchange(PCFILE, LOG)
 						new_muse_bar.add_info(miscdata)
@@ -659,10 +721,13 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 					#print (note_data)
 					#notelist.append(note_data)
 				#new_muse_bar.append_note(new_note)
-
 					new_muse_bar.add_note(new_note)
+					new_muse_bar.check_tied_accidentals()
 			rests_length = get_short(PCFILE,LOG)
-			if rests_length:
+			if rests_length == 0x0318:
+				dec = get_decoration(PCFILE, LOG)
+				new_muse_bar.info_list.append(dec)
+			elif rests_length:
 				print (" {n} rests".format(n=rests_length))
 				for i in range(rests_length):
 					new_rest=read_rest(PCFILE,LOG)
