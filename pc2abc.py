@@ -626,7 +626,7 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 	
 	start_sequence =  get_bytes(PCFILE, LOG, 26)
 	print (''.join(start_sequence))
-	[unknown1] = get_char(PCFILE,LOG)
+    # [unknown1] = get_char(PCFILE,LOG)
 	[version] = get_char(PCFILE, LOG)
 	version_number = '{0:02x}'.format(ord(version))
 	print ("Version: {v}".format(v=version_number))
