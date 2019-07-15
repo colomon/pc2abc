@@ -407,7 +407,7 @@ def read_note(FILE,LOG):
 		log(LOG,pos,notebytes)
 		dummy1, tuplet, dummy2 = unpack('BB24s', notebytes)
 		new_note.tuplet=tuplet
-	if type in [0x42, 0x43, 0x46, 0x47, 0x4a, 0x4b, 0xca, 0xcb]:
+	if type in [0x42, 0x43, 0x46, 0x47, 0x4a, 0x4b, 0xc3, 0xca, 0xcb]:
 		dummy = get_bytes(PCFILE, LOG, 2)
 	return new_note
 
@@ -600,6 +600,7 @@ def render_tune(tune):
 				barcount+=1
 			if not newlineflag:
 				ABC.write("\n")
+		ABC.write("%\n%\n%#Folop:{n}\n".format(n=file_stem))
 
 def get_strings(tune):
 	misc_strings=""
@@ -610,7 +611,7 @@ def get_strings(tune):
 		for bar in p.bar_list:
 			if len(bar.misc_list):
 				finds+=1
-			for m in bar.misc_list:
+			for m in reversed(bar.misc_list):
 				misc_strings += "% " + m + "\n"
 				if finds==1:
 					titlestring+="T:{s}\n".format(s=m)
