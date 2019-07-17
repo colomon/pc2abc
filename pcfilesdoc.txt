@@ -1,3 +1,42 @@
+# Object contains hierarchy
+# tune-related data in class Tune
+# A Tune contains a Stik which contains a list of Stik_bars 
+# A Tune also contains a Muse
+# A Muse has a list of Muse_parts
+# Each part has a list of Muse_bars
+# Each Muse_bar has a list of Misc_objects and a list of Notes and a list of Rests
+
+
+
+# Personal composer encodes diatonic note values with note 0 being the space below the staff (D in treble clef).
+# Line 1 of the staff is then -1 (E in treble clef).
+# In this program we use an internal diatonic note reprentation that is more logical (possibly?) starting with 1 for the C
+# three octaves below middle C (which will be C,,, in ABC notation)
+# Middle C will then become 0 + (3 * 7) = 21
+# We end up subtractiong the note number from an 'offset' that is clef dependent.
+# This converts the note to an absolute (not clef related) pitch with increasing numbers for higher notes.
+# eg the treble clef offset is 23
+# If the Personal Composer note number is -1, our internal representation of the note will be:
+#    offset - note number
+#    = 23 - (-1)
+#    = 24
+# ie 2 diatonic notes higher than middle C '''
+#
+# Note lengths are encoded by Personal Composer using a numerical representation. 
+# We convert this to our own numerical representation. The following table shows corresponding values:
+#
+#       Note recordType   |  PC numerical representation      Our numerical representation
+#      -------------|--------------------------------|---------------------------------
+#        Semiquaver |       8                        |            1
+#        Quaver     |       9                        |            2
+#        Crotchet   |       10                       |            4
+#        Minim      |       11                       |            8
+#        Semibreve  |       12                       |            16
+#
+# Personal Composer also encodes a kind of "elapsed time within the bar" field. The units are the same as our
+# numerical representation of notes.
+
+
 C1  normal    1100 0001
 C0  normal    1100 0000
 41  normal    0100 0001
@@ -75,3 +114,8 @@ Simple dot---------------
 clef/key
 
 60 hex = key 6 clef 0
+
+Meter numerator is as expected (eg '4' means 4 in a bar)
+    Meter denominator uses the quirky PC convention:
+     10 = crotchet (conventionally 4)
+     11 = minim (conventionally 2)
