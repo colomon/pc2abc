@@ -15,6 +15,8 @@ import sys
 #from operator import  attrgetter
 from itertools import groupby
 
+Folop = 0
+
 PCFILE = sys.argv[1] 
 name_parts = PCFILE.split('.',1)	#Splits filename into 2 parts
 file_stem=name_parts[0]
@@ -27,7 +29,8 @@ midi_t	= 40 #treble clef instrument
 midi_a	= 40 #alto clef instrument
 midi_b	= 42 #bass clef instrument
 
-attribution= """%
+if Folop:
+    attribution= """%
 % Original edition transcribed and edited by Albert Folop: 
 % http://imslp.org/wiki/Category:Folop_Viol_Music_Collection
 % That edition released under Creative Commons Attribution-NonCommercial-ShareAlike 3.0 licence
@@ -37,6 +40,8 @@ attribution= """%
 % (http://creativecommons.org/licenses/by-nc-sa/3.0/)
 %
 """
+else:
+    attribution = ""
 
 class Music_object():
 	kind=1
@@ -600,7 +605,8 @@ def render_tune(tune):
 				barcount+=1
 			if not newlineflag:
 				ABC.write("\n")
-		ABC.write("%\n%\n%#Folop:{n}\n".format(n=file_stem))
+        if Folop:
+            ABC.write("%\n%\n%#Folop:{n}\n".format(n=file_stem))
 
 def get_strings(tune):
 	misc_strings=""
