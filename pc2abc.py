@@ -468,16 +468,34 @@ def get_misc18(FILE,LOG):
 	part2 = FILE.read(10+extras)
 	log(LOG,pos,part2)
 	return part2	
+    
+  # misc12 string fields
+  # 00 00 50 0b fc ff fd fb 01 00 56 01 12 00 de 13 8d 03 00 00 04 00 6b 00 title (beef in the cupboard)
+  # 00 00 b0 0c 05 00 cf fb 09 00 09 02 07 00 89 0c 8d 03 00 00 03 00 01 00 title (Festival Reel)
+  # 00 00 80 08 fd ff 15 fa 01 00 56 01 0c 00 a5 10 c0 02 00 00 03 00 03 00 title (french chanson)
+  # 00 00 40 08 03 00 eb fb 01 00 00 00 07 00 42 18 ab 01 00 00 08 00 30 00 title (8. Belle sans sy...)
+  
+  # 00 00 50 0b 03 00 75 fd 01 00 00 00 04 00 96 06 8d 01 00 00 03 00 02 00 compooser (Emile)
+  
+  # 00 00 40 0a fe ff 1f fa 01 00 00 00 07 00 b1 04 ab 01 00 00 03 00 04 00 composer? (Lombart)
+  # 00 00 40 01 01 00 55 fb 01 00 56 01 0a 00 0a 0c 95 01 00 00 04 00 10 00 composer (Pierre Attaignant (1529))
+
+  # 00 00 30 0a fb ff a0 03 01 00 56 01 07 00 4b 03 a6 01 00 00 02 00 1d 00 (Lyric)
+  
+  # 00 00 60 08 02 00 00 03 01 00 00 00 07 00 8a 03 ab 01 00 00 02 00 1d 00 page number (2270-1)
+  
 
 def get_misc12(FILE,LOG):
 	pos=FILE.tell()
 	buffer=FILE.read(24)
 	log(LOG,pos,buffer)
-	part1, stringflag,part2= unpack('8sH14s', buffer)
+	part1, vertical_position, stringflag, part2= unpack('7sbH14s', buffer)
 	if stringflag:
 		stringlength=get_short(PCFILE,LOG)
 		miscdata = get_string(PCFILE, LOG, stringlength)
-		return miscdata
+        if vertical_position < 0:
+            return miscdata
+        # vertical_position > 0 (ie below the staff) may also be interesting?
 	return ''
 
 def get_clefchange(FILE,LOG):
