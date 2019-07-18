@@ -256,9 +256,10 @@ class Muse_bar():
 		if len(self.event_list):
 			for event in self.event_list:
 				event.render(ABCFILE, tune.current_clef)
-		else:
+			ABCFILE.write(" {b} ".format(b=self.stik.render_line()))
+		elif Folop:
 			ABCFILE.write (" Z ")
-		ABCFILE.write(" {b} ".format(b=self.stik.render_line()))
+			ABCFILE.write(" {b} ".format(b=self.stik.render_line()))
 	def visibility(self):
 		#Bar is visible if the visibility bit is set in the Stik, or we haven't had a type 3 barline yet
 		if self.stik.visible:
