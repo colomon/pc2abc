@@ -323,13 +323,13 @@ class stik_header():
 		self.visible= visibility
 		self.end = end
 	def render_line(self):
-		if self.line_type==0x0106:
+		if self.line_type in [0x0006, 0x0106]:
 			return ":|"
-		elif self.line_type in [0x0107, 0x0156]:
+		elif self.line_type in [0x0107, 0x0156, 0x0056]:
 			return "::"
 		elif self.line_type==0x0003:
 			return "|]"
-		elif self.line_type in [0x0005, 0x0050]:
+		elif self.line_type in [0x0005, 0x0050, 0x0150]:
 			return "|:"
 		else:
 			return "|"
