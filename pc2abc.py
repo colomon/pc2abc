@@ -517,8 +517,8 @@ def get_volta(FILE,LOG):
 	pos=FILE.tell()
 	buffer=FILE.read(54)
 	log(LOG,pos,buffer)
-	part1, volta, part2 = unpack('22ss31s',buffer)
-	return volta
+	part1, volta, part2, bar_offset, part3= unpack('22ss9sb21s',buffer)
+	return volta, bar_offset
 
 def get_decoration(FILE,LOG):
 	pos=FILE.tell()
@@ -713,11 +713,15 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 		this_part = Muse_part(p)
 		print ("Processing part {n}".format(n=p+1))
 		logprint (LOG, "Processing part {n}".format(n=p+1))
+		stored_volta = '';
 		for b in range(tune.num_bars):
 			print ("Processing notes for bar {n}".format(n=b+1))
 			logprint (LOG, "Processing notes for bar {n}".format(n=b+1))
 			#barheader = read_barhead(PCFILE,LOG)
 			new_muse_bar = read_barstuff(PCFILE,LOG)
+			if len(stored_volta) > 0:
+				new_muse_bar.volta=stored_volta
+				stored_volta = ''
 			new_muse_bar.stik =tune.stik_list[b+1]
 			misclist=[]
 			#notelist=[]
@@ -739,8 +743,11 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 						miscdata = get_clefchange(PCFILE, LOG)
 						new_muse_bar.add_info(miscdata)
 					elif misc_type==0x30:
-						miscdata = get_volta(PCFILE,LOG)
-						new_muse_bar.volta=miscdata
+						volta, offset = get_volta(PCFILE,LOG)
+						if offset == 0:
+							new_muse_bar.volta = volta
+						elif offset == 1:
+							stored_volta = volta
 			notes_length = get_short(PCFILE,LOG)
 			if notes_length:
 				print (" {n} notes".format(n=notes_length))
