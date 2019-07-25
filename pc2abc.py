@@ -249,7 +249,7 @@ class Muse_bar():
 			tune.beats = self.beats
 			tune.unit = self.unit
 			ABCFILE.write("[M:{t}] ".format(t=tune.time_sig))
-		if self.volta:
+		if self.volta and not self.volta.isspace():
 			ABCFILE.write("[{v} ".format(v=self.volta))
 		self.find_chords()
 		self.sort_events()
