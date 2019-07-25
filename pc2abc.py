@@ -506,10 +506,7 @@ def get_misc12(FILE,LOG):
 		stringlength=get_short(PCFILE,LOG)
 		miscdata = get_string(PCFILE, LOG, stringlength)
 		if vertical_position < 0:
-			if miscdata == "Fine":
-				return ''
-			else:
-				return miscdata
+			return miscdata
 		# vertical_position > 0 (ie below the staff) may also be interesting?
 	return ''
 
@@ -750,7 +747,10 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 						miscdata=get_misc18(PCFILE,LOG)
 					elif misc_type==0x12:
 						miscdata = get_misc12(PCFILE,LOG)
-						new_muse_bar.add_misc(miscdata)
+						if miscdata == "Fine":
+							new_muse_bar.add_decoation("+fine+")
+						else:
+							new_muse_bar.add_misc(miscdata)
 					elif misc_type==0x15:
 						dummy = get_bytes(PCFILE, LOG, 34)
 						#MF sign to be processed
