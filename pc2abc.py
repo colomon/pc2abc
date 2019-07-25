@@ -188,6 +188,7 @@ class Muse_bar():
 	note_list = []
 	rest_list = []
 	event_list = []
+	decoration_list = []
 	stik=0
 	def __init__(self, key=0, clef=0, beats=0, unit=0,stik=0):
 		self.clef = clef
@@ -201,6 +202,7 @@ class Muse_bar():
 		self.event_list= []
 		self.misc_list = []
 		self.info_list = []
+		self.decoration_list = []
 	def add_note(self, some_note):
 		self.note_list.append(some_note)
 	def check_tied_accidentals(self):
@@ -220,6 +222,8 @@ class Muse_bar():
 		self.misc_list.append(some_misc)
 	def add_info(self, some_info):
 		self.info_list.append(some_info)
+	def add_decoation(self, decoration):
+		self.decoration_list.append(decoration)
 	def sort_events(self):
 		notes_and_rests= self.info_list + self.note_list + self.rest_list  
 		self.event_list = sorted(notes_and_rests, key=lambda x: x.timecode, reverse=False)
@@ -255,6 +259,9 @@ class Muse_bar():
 		if self.volta and not self.volta.isspace():
 			ABCFILE.write("[{v} ".format(v=self.volta))
 		self.find_chords()
+		for decoration in self.decoration_list:
+			ABCFILE.write(decoration)
+			ABCFILE.write(" ")
 		self.sort_events()
 		if len(self.event_list):
 			for event in self.event_list:
