@@ -592,8 +592,6 @@ def render_tune(tune):
 			ABC.write("T:Unknown\n")
 		if tune.composer:
 			ABC.write(tune.composer)
-		else:
-			ABC.write("C:\n")
 		if Folop:
 			ABC.write("L:1/4\n")
 		else:
@@ -654,7 +652,7 @@ def get_strings(tune):
 				misc_strings += "% " + m + "\n"
 				if finds==1:
 					titlestring+="T:{s}\n".format(s=m)
-				if finds==2:
+				if finds==2 and len(m) > 0:
 					composerstring+="C:{c}\n".format(c=m)
 	tune.title=titlestring
 	tune.composer=composerstring
