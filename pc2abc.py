@@ -122,12 +122,15 @@ def decode_length(l,d):
 	abc_lengths = [1, 2, 8, 16, 32 ,64, 128, 256, 512, 1024]
 	try:
 		abc128_length = abc_lengths[l-5]
+		lengths = [32,16,8,2,1] # eighth note is base
+		if Folop:
+			lengths = [64,32,16,8,2,1] # quarter note is base
 		if d:
 			abc128_length += abc128_length//2
-		for divisor in [64,32,16,8,2,1]:
+		for divisor in lengths:
 			if abc128_length%divisor == 0:
 				numerator = abc128_length//divisor
-				denominator = 64//divisor
+				denominator = lengths[0]//divisor
 				if denominator == 1:
 					if numerator == 1:
 						return ""
@@ -588,7 +591,10 @@ def render_tune(tune):
 			ABC.write(tune.composer)
 		else:
 			ABC.write("C:\n")
-		ABC.write("L:1/4\n")
+		if Folop:
+			ABC.write("L:1/4\n")
+		else:
+			ABC.write("L:1/8\n")
 		#p = str([x+1 for x in list(range(tune.num_parts))]).strip('[],')
 		p=""
 		for x in range(tune.num_parts):
