@@ -498,9 +498,12 @@ def get_misc12(FILE,LOG):
 	if stringflag:
 		stringlength=get_short(PCFILE,LOG)
 		miscdata = get_string(PCFILE, LOG, stringlength)
-        if vertical_position < 0:
-            return miscdata
-        # vertical_position > 0 (ie below the staff) may also be interesting?
+		if vertical_position < 0:
+			if miscdata == "Fine":
+				return ''
+			else:
+				return miscdata
+		# vertical_position > 0 (ie below the staff) may also be interesting?
 	return ''
 
 def get_clefchange(FILE,LOG):
