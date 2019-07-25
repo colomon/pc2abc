@@ -484,6 +484,7 @@ def get_misc18(FILE,LOG):
   # 00 00 30 0a fb ff a0 03 01 00 56 01 07 00 4b 03 a6 01 00 00 02 00 1d 00 (Lyric)
   
   # 00 00 60 08 02 00 00 03 01 00 00 00 07 00 8a 03 ab 01 00 00 02 00 1d 00 page number (2270-1)
+  # 00 00 60 01 01 00 b4 fd 15 00 19 01 01 00 98 01 2b 01 00 00 02 00 1f 00 Fine
   
 
 def get_misc12(FILE,LOG):
@@ -507,6 +508,10 @@ def get_clefchange(FILE,LOG):
 	part1, timecode, part2, c1, c2, part3 = unpack('3sB8sBB10s', buffer)
 	info_obj = Clef_change(timecode, c2)
 	return info_obj
+    
+    # 00 00 00 00 03 00 c5 fd 0c 00 40 01 01 00 88 00 80 01 00 00 00 00 31 00 00 00 00 00 5b ff ab fc 00 00 d0 0e 01 1st ending
+    # 00 00 ff 0f d6 00 ab fd 0c 00 40 01 01 00 88 00 80 01 00 00 00 00 32 00 00 00 ff 0f 2a 00 ab fc 01 00 ff 0f 15 2nd ending Early
+    # 00 00 ff 11 01 01 15 fd 0c 00 40 01 01 00 71 00 80 01 00 00 00 00 20 00 00 00 ff 11 41 00 ab fc 01 00 10 05 00 Fine ending Early
 
 def get_volta(FILE,LOG):
 	pos=FILE.tell()
