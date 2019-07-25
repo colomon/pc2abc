@@ -629,8 +629,8 @@ def render_tune(tune):
 				barcount+=1
 			if not newlineflag:
 				ABC.write("\n")
-        if Folop:
-            ABC.write("%\n%\n%#Folop:{n}\n".format(n=file_stem))
+		if Folop:
+			ABC.write("%\n%\n%#Folop:{n}\n".format(n=file_stem))
 
 def get_strings(tune):
 	misc_strings=""
@@ -656,7 +656,8 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 	
 	start_sequence =  get_bytes(PCFILE, LOG, 26)
 	print (''.join(start_sequence))
-    # [unknown1] = get_char(PCFILE,LOG)
+	if Folop:
+		[unknown1] = get_char(PCFILE,LOG)
 	[version] = get_char(PCFILE, LOG)
 	version_number = '{0:02x}'.format(ord(version))
 	print ("Version: {v}".format(v=version_number))
