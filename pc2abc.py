@@ -382,7 +382,7 @@ def read_stik_head(FILE,LOG):
 	stikbytes = FILE.read(28)
 	log (LOG, pos, stikbytes)
 	stikdata = unpack('2sH4sH7sb10s', stikbytes)
-	#LOG.write("\nCreating new stik item with num {n} and visibility {v}\n".format(n=stikdata[1], v=stikdata[3]))
+	LOG.write("\nCreating new stik item with num {n}, line_type {l}, and visibility {v}\n".format(l=stikdata[1], n=stikdata[3], v=stikdata[5]))
 	new_stik = stik_header(start=stikdata[0], line_type=stikdata[1], mid1=stikdata[2], num=stikdata[3], mid2=stikdata[4], visibility=stikdata[5], end=stikdata[6])
 	return new_stik
 
