@@ -17,8 +17,11 @@ from itertools import groupby
 
 Folop = 0
 
-PCFILE = sys.argv[1] 
-name_parts = PCFILE.split('.',1)	#Splits filename into 2 parts
+PCFILE = sys.argv[1]
+if len(sys.argv) > 2:
+    name_parts = sys.argv[2].split('.',1)	#Splits filename into 2 parts
+else:
+    name_parts = PCFILE.split('.',1)	#Splits filename into 2 parts
 file_stem=name_parts[0]
 ABCFILE = file_stem + '.abc'
 LOGFILE = file_stem + '.log'
