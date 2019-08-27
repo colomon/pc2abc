@@ -420,12 +420,20 @@ def read_note(FILE,LOG):
 		new_note.accidental = '^'
 	if new_note.tie_start:
 		dot_data = get_bytes(PCFILE,LOG,12)
-	if new_note.tuplet and new_note.cont:
+    # if new_note.tuplet and new_note.cont:
+	if new_note.cont:
+		logprint(LOG, "Reading tuplet {t} / cont {c}".format(t= new_note.tuplet, c=new_note.cont));
 		pos=FILE.tell()
-		notebytes = FILE.read(26)
+		notebytes = FILE.read(26+14)
 		log(LOG,pos,notebytes)
-		dummy1, tuplet, dummy2 = unpack('BB24s', notebytes)
-		new_note.tuplet=tuplet
+		cont_mode, tuplet, dummy2, dummy3 = unpack('BB24s14s', notebytes)
+		if cont_mode != 0x12:
+			pos=FILE.tell()
+			notebytes = FILE.read(29)
+			log(LOG,pos,notebytes)
+			new_note.tuplet=tuplet
+		else:
+			new_note.tuplet = 0
 	if type in [0x42, 0x43, 0x46, 0x47, 0x4a, 0x4b, 0xc3, 0xca, 0xcb]:
 		dummy = get_bytes(PCFILE, LOG, 2)
 	return new_note
