@@ -22,7 +22,7 @@ sub convert-pc-file($pc-file, :$out-dir?) {
 
     CATCH {
         default {
-            @failing-files.push($pc-file);
+            @failing-files.push($pc-file.Str);
         }
     }
 }
