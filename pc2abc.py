@@ -97,7 +97,7 @@ class Note(Music_object):
 		self.beam_end = beam_end
 	def render(self, ABC, clef):
 		if self.tuplet and self.cont:
-			ABC.write("({n} ".format(n=self.tuplet))
+			ABC.write("({n}".format(n=self.tuplet))
 		abcpitch = self.decode_pitch(clef)
 		abclength = decode_length(self.length, self.dot)
 		tie = ''
@@ -230,6 +230,13 @@ class Muse_bar():
 	def sort_events(self):
 		notes_and_rests= self.info_list + self.note_list + self.rest_list  
 		self.event_list = sorted(notes_and_rests, key=lambda x: x.timecode, reverse=False)
+	def move_tuplets_forward(self):
+		for n in range(1, len(self.event_list)):
+			if self.event_list[n].tuplet and self.event_list[n].cont:
+				self.event_list[n-1].tuplet = self.event_list[n].tuplet
+				self.event_list[n-1].cont = self.event_list[n].cont
+				self.event_list[n].tuplet = 0
+				self.event_list[n].cont = 0
 	def find_chords(self):
 		#Check note list for chords
 		timecode_list = [n.timecode for n in self.note_list]
@@ -266,6 +273,7 @@ class Muse_bar():
 			ABCFILE.write(decoration)
 			ABCFILE.write(" ")
 		self.sort_events()
+		self.move_tuplets_forward()
 		if len(self.event_list):
 			for event in self.event_list:
 				event.render(ABCFILE, tune.current_clef)
