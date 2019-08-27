@@ -766,6 +766,8 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 							new_muse_bar.volta = volta
 						elif offset == 1:
 							stored_volta = volta
+					elif misc_type==0x04:
+						dummy = get_bytes(PCFILE, LOG, 38)
 			notes_length = get_short(PCFILE,LOG)
 			if notes_length:
 				print (" {n} notes".format(n=notes_length))
