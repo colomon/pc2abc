@@ -231,8 +231,11 @@ class Muse_bar():
 		notes_and_rests= self.info_list + self.note_list + self.rest_list  
 		self.event_list = sorted(notes_and_rests, key=lambda x: x.timecode, reverse=False)
 	def move_tuplets_forward(self):
+		# for n in range(0, len(self.event_list)):
+		#     if isinstance(self.event_list[n], Note):
+		#         print "{n} cont: {c} tuplet: {t}\n".format(n=n, c=self.event_list[n].cont, t=self.event_list[n].tuplet)
 		for n in range(1, len(self.event_list)):
-			if self.event_list[n].tuplet and self.event_list[n].cont:
+			if isinstance(self.event_list[n], Note) and self.event_list[n].tuplet and self.event_list[n].cont:
 				self.event_list[n-1].tuplet = self.event_list[n].tuplet
 				self.event_list[n-1].cont = self.event_list[n].cont
 				self.event_list[n].tuplet = 0
