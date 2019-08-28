@@ -312,6 +312,7 @@ class Muse_part():
 class Tune():
 	title=''
 	composer=0
+	notes=0
 	beats=0
 	unit =0
 	current_clef=''
@@ -628,6 +629,8 @@ def render_tune(tune):
 			ABC.write("T:Unknown\n")
 		if tune.composer:
 			ABC.write(tune.composer)
+		if tune.notes:
+			ABC.write(tune.notes)
 		if Folop:
 			ABC.write("L:1/4\n")
 		else:
@@ -679,6 +682,7 @@ def get_strings(tune):
 	misc_strings=""
 	titlestring=""
 	composerstring=""
+	note_strings=""
 	finds=0
 	for p in tune.part_list:
 		for bar in p.bar_list:
@@ -690,8 +694,11 @@ def get_strings(tune):
 					titlestring+="T:{s}\n".format(s=m)
 				if finds==2 and len(m) > 0:
 					composerstring+="C:{c}\n".format(c=m)
+			for m in bar.misc_note_list:
+				note_strings += "N: " + m + "\n"
 	tune.title=titlestring
 	tune.composer=composerstring
+	tune.notes = note_strings
 	return misc_strings
 
 tune = Tune()	#Make a new tune
