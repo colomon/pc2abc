@@ -235,10 +235,9 @@ class Muse_bar():
 		#     if isinstance(self.event_list[n], Note):
 		#         print "{n} cont: {c} tuplet: {t}\n".format(n=n, c=self.event_list[n].cont, t=self.event_list[n].tuplet)
 		for n in range(1, len(self.event_list)):
-			if isinstance(self.event_list[n], Note) and self.event_list[n].tuplet and self.event_list[n].cont:
+			if isinstance(self.event_list[n], Note) and self.event_list[n].tuplet and self.event_list[n].cont and self.event_list[n-1].tuplet:
 				self.event_list[n-1].tuplet = self.event_list[n].tuplet
 				self.event_list[n-1].cont = self.event_list[n].cont
-				self.event_list[n].tuplet = 0
 				self.event_list[n].cont = 0
 	def find_chords(self):
 		#Check note list for chords
