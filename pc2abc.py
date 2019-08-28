@@ -535,9 +535,11 @@ def get_misc12(FILE,LOG):
 		stringlength=get_short(PCFILE,LOG)
 		miscdata = get_string(PCFILE, LOG, stringlength)
 		if vertical_position < 0:
-			return miscdata
+			return miscdata, ''
+		else:
+			return '', miscdata
 		# vertical_position > 0 (ie below the staff) may also be interesting?
-	return ''
+	return '', ''
 
 def get_clefchange(FILE,LOG):
 	pos=FILE.tell()
@@ -776,11 +778,13 @@ with open(LOGFILE, 'w') as LOG, open(PCFILE, 'r') as PCFILE:
 					if misc_type in [0x18, 0x19]:
 						miscdata=get_misc18(PCFILE,LOG)
 					elif misc_type==0x12:
-						miscdata = get_misc12(PCFILE,LOG)
+						miscdata, miscnote = get_misc12(PCFILE,LOG)
 						if miscdata == "Fine":
 							new_muse_bar.add_decoation("+fine+")
 						else:
 							new_muse_bar.add_misc(miscdata)
+						if miscnote:
+							new_muse_bar.add_miscnote(miscnote)
 					elif misc_type==0x15:
 						dummy = get_bytes(PCFILE, LOG, 34)
 						#MF sign to be processed
