@@ -524,7 +524,8 @@ def get_misc12(FILE,LOG):
 	buffer=FILE.read(24)
 	log(LOG,pos,buffer)
 	part1, vertical_position, stringflag, part2= unpack('7sbH14s', buffer)
-	if stringflag:
+	# think 4 corresponds to a sign
+	if stringflag != 0 and stringflag != 4:
 		stringlength=get_short(PCFILE,LOG)
 		miscdata = get_string(PCFILE, LOG, stringlength)
 		if vertical_position < 0:
