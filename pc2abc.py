@@ -188,6 +188,7 @@ class Muse_bar():
 	unit = 0
 	volta=''
 	misc_list = []
+	misc_note_list = []
 	info_list = []
 	note_list = []
 	rest_list = []
@@ -205,6 +206,7 @@ class Muse_bar():
 		self.rest_list = []
 		self.event_list= []
 		self.misc_list = []
+		self.misc_note_list = []
 		self.info_list = []
 		self.decoration_list = []
 	def add_note(self, some_note):
@@ -224,6 +226,8 @@ class Muse_bar():
 		self.rest_list.append(some_rest)
 	def add_misc(self, some_misc):
 		self.misc_list.append(some_misc)
+	def add_miscnote(self, some_misc):
+		self.misc_note_list.append(some_misc)
 	def add_info(self, some_info):
 		self.info_list.append(some_info)
 	def add_decoation(self, decoration):
