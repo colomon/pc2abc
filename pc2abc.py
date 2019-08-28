@@ -17,7 +17,8 @@ from itertools import groupby
 
 Folop = 0
 
-PCFILE = sys.argv[1]
+PCFILENAME = sys.argv[1]
+PCFILE = PCFILENAME
 if len(sys.argv) > 2:
     name_parts = sys.argv[2].split('.',1)	#Splits filename into 2 parts
 else:
@@ -610,7 +611,7 @@ def render_tune(tune):
 		fatal ("Can't find any bars to extract key!")
 	with open(ABCFILE, 'w') as ABC:
 		ABC.write("%abc-2.1\n")
-		ABC.write("% {a}\n".format(a=ABCFILE))
+		ABC.write("% {a}\n".format(a=PCFILENAME))
 		ABC.write(attribution)
 		ABC.write(get_strings(tune))
 		ABC.write("%%measurenb 0\n%%squarebreve\n")
