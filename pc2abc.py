@@ -353,7 +353,7 @@ class stik_header():
 			return "::"
 		elif self.line_type==0x0003:
 			return "|]"
-		elif self.line_type in [0x0005, 0x0050, 0x0150]:
+		elif self.line_type in [0x0005, 0x0050, 0x0150, 0x0053]:
 			return "|:"
 		else:
 			return "|"
